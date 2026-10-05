@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum EducationLevel {
+  PRIMARY
+  JUNIOR_SECONDARY
+  SENIOR_SECONDARY
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  studentProfile  StudentProfile?
+  teacherProfile  TeacherProfile?
+  notes           Note[]
+  quizAttempts    QuizAttempt[]
+  progress        Progress[]
+  communityPosts  CommunityPost[]
+  communityComments CommunityComment[]
+  notifications   Notification[]
+  orders          Order[]
+  communityLikes  CommunityLike[]
+  communityReports CommunityReport[]
+}
+
+model StudentProfile {
+  id             Int            @id @default(autoincrement())
+  userId         Int            @unique
+  educationLevel EducationLevel
+  gradeId        Int?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grade Grade? @relation(fields: [gradeId], references: [id])
+}
+
+model TeacherProfile {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  bio       String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Grade {
+  id            Int           @id @default(autoincrement())
+  name          String        @unique
+  educationLevel EducationLevel
+  createdAt     DateTime      @default(now())
+
+  students  StudentProfile[]
+  subjects  Subject[]
+  pastPapers PastPaper[]
+  quizzes   Quiz[]
+  printables Printable[]
+}
+
+model Subject {
+  id        Int      @id @default(autoincrement())
+  name      String
+  code      String?  @unique
+  gradeId   Int
+  createdAt DateTime @default(now())
+
+  grade      Grade       @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  topics     Topic[]
+  pastPapers PastPaper[]
+  quizzes    Quiz[]
+  printables Printable[]
+
+  @@unique([name, gradeId])
+}
+
+model Topic {
+  id        Int      @id @default(autoincrement())
+  name      String
+  subjectId Int
+  createdAt DateTime @default(now())
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  notes   Note[]
+
+  @@unique([name, subjectId])
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String   @db.Text
+  topicId   Int
+  authorId  Int?
+  source    String?
+  license   String?
+  status    String   @default("DRAFT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  topic  Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+model PastPaper {
+  id         Int      @id @default(autoincrement())
+  title      String
+  year       Int
+  examType   String?
+  gradeId    Int
+  subjectId  Int
+  fileUrl    String?
+  markingUrl String?
+  source     String?
+  license    String?
+  status     String   @default("DRAFT")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  grade     Grade      @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions Question[]
+}
+
+model Question {
+  id          Int      @id @default(autoincrement())
+  question    String   @db.Text
+  answer      String?  @db.Text
+  explanation String?  @db.Text
+  marks       Int?
+  order       Int
+  pastPaperId Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pastPaper    PastPaper      @relation(fields: [pastPaperId], references: [id], onDelete: Cascade)
+  quizQuestions QuizQuestion[]
+  quizAnswers   QuizAnswer[]
+}
+
+model Quiz {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?  @db.Text
+  gradeId     Int
+  subjectId   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  grade     Grade          @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+}
+
+model QuizQuestion {
+  id         Int @id @default(autoincrement())
+  quizId     Int
+  questionId Int
+  order      Int
+
+  quiz     Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([quizId, questionId])
+}
+
+model QuizAttempt {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  quizId      Int
+  score       Int      @default(0)
+  totalMarks  Int      @default(0)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz    Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+}
+
+model QuizAnswer {
+  id           Int      @id @default(autoincrement())
+  attemptId    Int
+  questionId   Int
+  answer       String   @db.Text
+  isCorrect    Boolean  @default(false)
+  marksAwarded Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  attempt  QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+}
+
+model Progress {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  subjectId        Int?
+  gradeId          Int?
+  quizzesCompleted Int      @default(0)
+  totalQuizzes     Int      @default(0)
+  totalScore       Int      @default(0)
+  totalMarks       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CommunityPost {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  content   String   @db.Text
+  category  String?
+  gradeId   Int?
+  subjectId Int?
+  status    String   @default("PUBLISHED")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments CommunityComment[]
+  likes    CommunityLike[]
+  reports CommunityReport[]
+}
+
+model CommunityComment {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports CommunityReport[]
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String   @db.Text
+  type      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Printable {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?  @db.Text
+  fileUrl     String?
+  gradeId     Int?
+  subjectId   Int?
+  type        String?
+  price       Decimal? @db.Decimal(10, 2)
+  isFree      Boolean  @default(true)
+  status      String   @default("DRAFT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  grade   Grade?   @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?  @db.Text
+  imageUrl    String?
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  category    String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems OrderItem[]
+}
+
+model Order {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  totalAmount Decimal  @db.Decimal(10, 2)
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+  payments   Payment[]
+  delivery   Delivery?
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int     @default(1)
+  price     Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  orderId       Int
+  amount        Decimal  @db.Decimal(10, 2)
+  method        String
+  transactionId String?
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Delivery {
+  id             Int      @id @default(autoincrement())
+  orderId        Int      @unique
+  fullName       String
+  phone          String
+  address        String
+  city           String?
+  county         String?
+  postalCode     String?
+  status         String   @default("PENDING")
+  trackingNumber String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model CommunityLike {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+model CommunityReport {
+    id        Int      @id @default(autoincrement())
+    postId    Int?
+    commentId Int?
+    userId    Int
+    reason    String
+    status    String   @default("PENDING")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    post    CommunityPost?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+    comment CommunityComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+    user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([postId])
+    @@index([commentId])
+    @@index([userId])
+    @@index([status])
+}
