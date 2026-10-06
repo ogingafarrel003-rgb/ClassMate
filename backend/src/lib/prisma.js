@@ -4,11 +4,11 @@ const { PrismaClient } = require("@prisma/client");
 const { PrismaMariaDb } = require("@prisma/adapter-mariadb");
 
 const adapter = new PrismaMariaDb({
-    host: "127.0.0.1",
-    port: 3306,
-    user: "root",
-    password: process.env.MYSQL_PASSWORD,
-    database: "classmate",
+    host: process.env.MYSQLHOST || "127.0.0.1",
+    port: Number(process.env.MYSQLPORT || 3306),
+    user: process.env.MYSQLUSER || "root",
+    password: process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQLDATABASE || "classmate",
     connectionLimit: 5,
 });
 
